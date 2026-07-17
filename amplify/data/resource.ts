@@ -1,5 +1,6 @@
 import { type ClientSchema, a, defineData } from '@aws-amplify/backend';
 import { evaluateUseCase } from '../functions/evaluate-use-case/resource';
+import { seedDemoData } from '../functions/seed-demo-data/resource';
 
 /*== GenAI Use-Case Decision Platform — data model =========================
 Implements the logical model in architecture.md §8 with the authorization
@@ -80,6 +81,16 @@ const schema = a
         missingInformation: a.string().array(),
         policyReferences: a.json(),
         deterministicFlags: a.json(),
+        // Supervised scoring loop (§9.5). scoreSource records whether the five
+        // dimension scores came from the fitted supervised model
+        // ('SUPERVISED_MODEL') or the LLM cold-start fallback ('LLM_COLDSTART').
+        // features is the structured feature snapshot used; featureContributions
+        // holds the per-dimension active feature effects (the "why");
+        // goldenSampleCount is how many golden labels the model was fit from.
+        scoreSource: a.string(),
+        features: a.json(),
+        featureContributions: a.json(),
+        goldenSampleCount: a.integer(),
         modelId: a.string(),
         modelConfiguration: a.json(),
         promptVersion: a.string(),
@@ -102,6 +113,28 @@ const schema = a
       })
       .authorization((allow) => [
         allow.groups(['REVIEWER', 'ADMIN']).to(['create', 'read']),
+        allow.authenticated().to(['read']),
+      ]),
+
+    // Golden labels — senior human scores treated as absolute truth for the
+    // supervised scoring model (§9.5). Append-only: only SENIOR_REVIEWER/ADMIN
+    // may create, and there is no update/delete grant, so a golden label stays
+    // authoritative once written. All authenticated users may read it so the
+    // Evaluation card and the client-side model preview can use it. `features`
+    // is the structured feature snapshot at label time; `scores` holds the five
+    // dimension scores (0-100) the senior assigned.
+    GoldenLabel: a
+      .model({
+        useCaseId: a.id().required(),
+        features: a.json(),
+        scores: a.json(),
+        overallScore: a.integer(),
+        recommendation: a.ref('Recommendation'),
+        scoredBy: a.string(),
+        notes: a.string(),
+      })
+      .authorization((allow) => [
+        allow.groups(['SENIOR_REVIEWER', 'ADMIN']).to(['create', 'read']),
         allow.authenticated().to(['read']),
       ]),
 
@@ -143,6 +176,22 @@ const schema = a
         allow.authenticated().to(['read']),
       ]),
 
+    // Singleton platform configuration (id = "GLOBAL"). Only an Administrator
+    // may change which Bedrock model generates the decision card or toggle the
+    // evaluation feature flag; all authenticated users may read it so the UI
+    // can show the active model (§9.4, §14.3). The evaluate function validates
+    // activeModelId against the approved-model allow-list before use.
+    PlatformConfig: a
+      .model({
+        activeModelId: a.string(),
+        evaluationsEnabled: a.boolean().default(true),
+        updatedBy: a.string(),
+      })
+      .authorization((allow) => [
+        allow.groups(['ADMIN']),
+        allow.authenticated().to(['read']),
+      ]),
+
     // Protected business operation (§10): evaluation runs only in the backend.
     evaluateUseCase: a
       .mutation()
@@ -150,10 +199,20 @@ const schema = a
       .returns(a.json())
       .authorization((allow) => [allow.authenticated()])
       .handler(a.handler.function(evaluateUseCase)),
+
+    // Admin-only: insert historical demo use cases (§17). No Bedrock calls.
+    seedDemoData: a
+      .mutation()
+      .returns(a.json())
+      .authorization((allow) => [allow.group('ADMIN')])
+      .handler(a.handler.function(seedDemoData)),
   })
-  // Grant the evaluation function access to the data API (least privilege
-  // is enforced inside the handler; see §13).
-  .authorization((allow) => [allow.resource(evaluateUseCase)]);
+  // Grant the backend functions access to the data API (least privilege is
+  // enforced inside each handler; see §13).
+  .authorization((allow) => [
+    allow.resource(evaluateUseCase),
+    allow.resource(seedDemoData),
+  ]);
 
 export type Schema = ClientSchema<typeof schema>;
 

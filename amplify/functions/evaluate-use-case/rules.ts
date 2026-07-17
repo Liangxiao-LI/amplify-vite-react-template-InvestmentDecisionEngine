@@ -6,6 +6,54 @@ import type { DeterministicFlag, RuleResult, UseCaseInput } from './types';
  * behavioral change here requires a version bump in the function resource.
  */
 
+/**
+ * Human-readable description of each deterministic rule, rendered on the
+ * Decision Framework page so reviewers can see exactly how the engine
+ * constrains an approval. Kept next to the executable logic below so the two
+ * stay in sync.
+ */
+export const RULE_CATALOG: Array<{
+  ruleId: string;
+  condition: string;
+  consequence: string;
+}> = [
+  {
+    ruleId: 'HIGH_IMPACT_DOMAIN',
+    condition: 'Affects employment, credit, health, legal rights, or essential services',
+    consequence: 'Caps the recommendation at SPECIALIST_REVIEW_REQUIRED (model cannot override)',
+  },
+  {
+    ruleId: 'EXTERNAL_NO_OVERSIGHT',
+    condition: 'External-facing generated content with no human oversight',
+    consequence: 'Requires a human-review-before-publication control',
+  },
+  {
+    ruleId: 'RESTRICTED_DATA',
+    condition: 'Data classification is RESTRICTED',
+    consequence: 'Requires a security review; caps recommendation at SPECIALIST_REVIEW_REQUIRED',
+  },
+  {
+    ruleId: 'NO_SUCCESS_METRICS',
+    condition: 'No measurable success metrics provided',
+    consequence: 'Flags missing information',
+  },
+  {
+    ruleId: 'NO_DATA_SOURCE',
+    condition: 'No data sources identified',
+    consequence: 'Limits recommendation to discovery/prototype',
+  },
+  {
+    ruleId: 'PERSONAL_DATA_NO_RETENTION',
+    condition: 'Personal data referenced without a stated retention period',
+    consequence: 'Requires a privacy review and a defined retention period',
+  },
+  {
+    ruleId: 'UNVALIDATED_USER_DOCUMENTS',
+    condition: 'User-provided documents may be sent to the model',
+    consequence: 'Requires file validation and prompt-injection controls',
+  },
+];
+
 const HIGH_IMPACT_TERMS = [
   'employment',
   'hiring',

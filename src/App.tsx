@@ -6,8 +6,10 @@ import { UseCaseList } from './features/use-cases/UseCaseList';
 import { UseCaseForm } from './features/use-cases/UseCaseForm';
 import { UseCaseDetail } from './features/use-cases/UseCaseDetail';
 import { ReviewQueue } from './features/reviews/ReviewQueue';
+import { AdminPanel } from './features/admin/AdminPanel';
+import { DecisionFramework } from './features/framework/DecisionFramework';
 
-type Page = 'dashboard' | 'mine' | 'review' | 'new';
+type Page = 'dashboard' | 'mine' | 'review' | 'new' | 'admin' | 'framework';
 
 /**
  * GenAI Use-Case Decision Platform — authenticated shell (§11).
@@ -39,7 +41,9 @@ function App() {
     };
   }, [userId]);
 
-  const isReviewer = groups.includes('REVIEWER') || groups.includes('ADMIN');
+  const isAdmin = groups.includes('ADMIN');
+  const isSenior = groups.includes('SENIOR_REVIEWER') || isAdmin;
+  const isReviewer = groups.includes('REVIEWER') || isSenior;
 
   function openUseCase(id: string) {
     setSelectedId(id);
@@ -61,7 +65,8 @@ function App() {
         </div>
         <div className="header-user">
           <span className="muted">{user?.signInDetails?.loginId ?? ''}</span>
-          {isReviewer && <span className="badge badge-info">Reviewer</span>}
+          {isSenior && <span className="badge badge-gold">Senior</span>}
+          {isReviewer && !isSenior && <span className="badge badge-info">Reviewer</span>}
           <button className="secondary" onClick={signOut}>
             Sign out
           </button>
@@ -89,6 +94,20 @@ function App() {
             Review queue
           </button>
         )}
+        {isAdmin && (
+          <button
+            className={page === 'admin' && !selectedId ? 'nav-active' : 'nav'}
+            onClick={() => navigate('admin')}
+          >
+            Admin
+          </button>
+        )}
+        <button
+          className={page === 'framework' && !selectedId ? 'nav-active' : 'nav'}
+          onClick={() => navigate('framework')}
+        >
+          How it works
+        </button>
       </nav>
 
       <main className="app-main">
@@ -97,6 +116,7 @@ function App() {
             useCaseId={selectedId}
             userId={userId}
             isReviewer={isReviewer}
+            isSenior={isSenior}
             onBack={() => setSelectedId(null)}
           />
         ) : page === 'dashboard' ? (
@@ -109,6 +129,10 @@ function App() {
           />
         ) : page === 'review' && isReviewer ? (
           <ReviewQueue onOpen={openUseCase} />
+        ) : page === 'admin' && isAdmin ? (
+          <AdminPanel adminId={userId} onOpen={openUseCase} />
+        ) : page === 'framework' ? (
+          <DecisionFramework />
         ) : page === 'new' ? (
           <UseCaseForm
             userId={userId}

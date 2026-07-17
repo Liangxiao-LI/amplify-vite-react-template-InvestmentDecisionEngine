@@ -4,6 +4,7 @@ import { Tags } from 'aws-cdk-lib';
 import { auth } from './auth/resource';
 import { data } from './data/resource';
 import { evaluateUseCase } from './functions/evaluate-use-case/resource';
+import { seedDemoData } from './functions/seed-demo-data/resource';
 import { createCostAlertTopic } from './cost-controls/notifications';
 import { createMonthlyBudget } from './cost-controls/budget';
 import { createCostAnomalyDetection } from './cost-controls/anomaly-detection';
@@ -12,6 +13,7 @@ const backend = defineBackend({
   auth,
   data,
   evaluateUseCase,
+  seedDemoData,
 });
 
 // --- Bedrock access (architecture.md §13) ----------------------------------
@@ -33,6 +35,7 @@ for (const stack of [
   backend.auth.stack,
   backend.data.stack,
   backend.evaluateUseCase.stack,
+  backend.seedDemoData.stack,
 ]) {
   Tags.of(stack).add('Application', 'genai-decision-platform');
   Tags.of(stack).add('ManagedBy', 'amplify');

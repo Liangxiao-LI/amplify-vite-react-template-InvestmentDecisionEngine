@@ -448,3 +448,256 @@ label.checkbox input {
   display: grid;
   place-items: center;
 }
+
+/* Admin — model options & toggle */
+.model-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.model-option {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.model-option.model-active {
+  border-color: var(--primary);
+  background: var(--info-bg);
+}
+
+.model-option input {
+  margin-top: 4px;
+}
+
+.model-option code {
+  font-size: 0.75rem;
+}
+
+.toggle-row {
+  margin-top: 8px;
+}
+
+/* Decision framework */
+.framework-flow {
+  margin: 8px 0 16px;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.framework-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin: 8px 0 16px;
+}
+
+.framework-table th,
+.framework-table td {
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.framework-table th {
+  background: var(--bg);
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.prompt-block {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  max-height: 340px;
+}
+
+/* AWS service trace */
+.trace-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.trace-row {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.trace-row:first-child {
+  border-top: none;
+}
+
+.trace-step {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.trace-detail {
+  margin-top: 4px;
+}
+
+.svc-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.svc-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.svc-auth { background: #7c3aed; }
+.svc-api { background: #2563eb; }
+.svc-data { background: #0891b2; }
+.svc-compute { background: #d97706; }
+.svc-ai { background: #db2777; }
+.svc-observ { background: #4b5563; }
+.svc-host { background: #059669; }
+.svc-cost { background: #b91c1c; }
+.svc-default { background: #4b5563; }
+
+/* --- Supervised scoring loop (§9.5) --------------------------------------- */
+.badge-gold {
+  background: #fef3c7;
+  color: #92600e;
+  border: 1px solid #f2d98a;
+}
+
+.score-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.25rem 0 0.75rem;
+}
+
+.contribution-dim {
+  margin-top: 0.75rem;
+}
+.contribution-dim-label {
+  font-weight: 600;
+}
+.contribution-list {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.contribution-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  background: var(--bg);
+  font-size: 0.9rem;
+}
+.contribution-effect {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.contribution-list li.pos .contribution-effect,
+td.pos {
+  color: var(--success);
+}
+.contribution-list li.neg .contribution-effect,
+td.neg {
+  color: var(--danger);
+}
+
+/* Senior golden-label form */
+.golden-card {
+  border-left: 3px solid #f2c14e;
+}
+.golden-score-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+.golden-score-input {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+.golden-score-input input {
+  width: 100%;
+}
+.golden-score-input.is-risk span {
+  color: var(--warning);
+}
+.golden-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+}
+.golden-overall {
+  margin: 0.25rem 0 0.5rem;
+  font-size: 1.05rem;
+}
+.golden-score-readonly {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+/* Supervised model section (Decision Framework) */
+.model-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+.coefficient-table td,
+.coefficient-table th {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.coefficient-table td:first-child,
+.coefficient-table th:first-child {
+  text-align: left;
+}
+.coefficient-table .baseline-row td {
+  background: var(--bg);
+}

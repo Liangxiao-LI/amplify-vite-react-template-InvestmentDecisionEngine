@@ -8,15 +8,18 @@ import {
   type UseCase,
 } from '../../lib/amplify-client';
 import { RECOMMENDATION_LABELS, startEvaluation, submitUseCase } from '../../lib/workflow';
+import { fetchGoldenLabelsForUseCase, type GoldenLabel } from '../../lib/scoring';
 import { StatusBadge } from '../../components/StatusBadge';
 import { EvaluationView } from '../evaluations/EvaluationView';
 import { DecisionForm } from '../reviews/DecisionForm';
+import { GoldenLabelForm } from '../golden/GoldenLabelForm';
 import { UseCaseForm } from './UseCaseForm';
 
 interface UseCaseDetailProps {
   useCaseId: string;
   userId: string;
   isReviewer: boolean;
+  isSenior: boolean;
   onBack: () => void;
 }
 
@@ -24,25 +27,33 @@ interface UseCaseDetailProps {
  * Use-case detail: proposal fields, AI assessment, reviewer decision,
  * comments, and the append-only status timeline (§11).
  */
-export function UseCaseDetail({ useCaseId, userId, isReviewer, onBack }: UseCaseDetailProps) {
+export function UseCaseDetail({
+  useCaseId,
+  userId,
+  isReviewer,
+  isSenior,
+  onBack,
+}: UseCaseDetailProps) {
   const [useCase, setUseCase] = useState<UseCase | null>(null);
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [decisions, setDecisions] = useState<ReviewerDecision[]>([]);
   const [comments, setComments] = useState<CommentRecord[]>([]);
   const [events, setEvents] = useState<StatusEvent[]>([]);
+  const [goldenLabels, setGoldenLabels] = useState<GoldenLabel[]>([]);
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [commentDraft, setCommentDraft] = useState('');
 
   const refresh = useCallback(async () => {
-    const [useCaseResult, evaluationResult, decisionResult, commentResult, eventResult] =
+    const [useCaseResult, evaluationResult, decisionResult, commentResult, eventResult, goldenLabels] =
       await Promise.all([
         client.models.UseCase.get({ id: useCaseId }),
         client.models.Evaluation.list({ filter: { useCaseId: { eq: useCaseId } } }),
         client.models.ReviewerDecision.list({ filter: { useCaseId: { eq: useCaseId } } }),
         client.models.Comment.list({ filter: { useCaseId: { eq: useCaseId } } }),
         client.models.StatusEvent.list({ filter: { useCaseId: { eq: useCaseId } } }),
+        fetchGoldenLabelsForUseCase(useCaseId),
       ]);
     setUseCase(useCaseResult.data ?? null);
     const byNewest = (a: { createdAt?: string | null }, b: { createdAt?: string | null }) =>
@@ -51,6 +62,7 @@ export function UseCaseDetail({ useCaseId, userId, isReviewer, onBack }: UseCase
     setDecisions((decisionResult.data ?? []).sort(byNewest));
     setComments((commentResult.data ?? []).sort(byNewest));
     setEvents((eventResult.data ?? []).sort(byNewest));
+    setGoldenLabels(goldenLabels);
   }, [useCaseId]);
 
   useEffect(() => {
@@ -263,6 +275,17 @@ export function UseCaseDetail({ useCaseId, userId, isReviewer, onBack }: UseCase
 
       {canDecide && (
         <DecisionForm useCase={useCase} reviewerId={userId} onDecided={refresh} />
+      )}
+
+      {/* Senior golden labelling (§9.5): available once the use case has been
+          evaluated, only to senior reviewers / admins. */}
+      {isSenior && currentEvaluation && (
+        <GoldenLabelForm
+          useCase={useCase}
+          seniorId={userId}
+          existingLabels={goldenLabels}
+          onSaved={refresh}
+        />
       )}
 
       <div className="card">

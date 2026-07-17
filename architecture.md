@@ -280,6 +280,21 @@ A Reviewer cannot:
 - Alter the rubric version associated with a completed evaluation.
 - erase prior decisions or status events through the application.
 
+### Senior Reviewer
+
+A Senior Reviewer is a trusted subset of reviewers (Cognito group `SENIOR_REVIEWER`) authorized to record **golden labels** — human scores treated as absolute truth for the supervised scoring model (§9.5).
+
+A Senior Reviewer can do everything a Reviewer can, and additionally:
+
+- Record a golden label (five dimension scores plus an optional recommendation) for an evaluated use case.
+
+A Senior Reviewer cannot:
+
+- Edit or delete a golden label once written. Golden labels are **append-only** (create/read only) so the training signal cannot be silently rewritten.
+- Record more than one golden label for the same use case (enforced in the UI; the model tolerates duplicates by treating each as an independent sample).
+
+Golden labelling is deliberately restricted to a senior group because these scores become ground truth. Membership is managed by an Administrator, never self-assigned.
+
 ### Administrator
 
 Administration is intentionally limited in the MVP. An Administrator may:
@@ -361,6 +376,10 @@ requiredControls[]
 missingInformation[]
 policyReferences[]
 deterministicFlags[]
+scoreSource            # SUPERVISED_MODEL | LLM_COLDSTART (§9.5)
+features               # structured feature snapshot used for scoring
+featureContributions   # per-dimension active feature effects (the "why")
+goldenSampleCount      # golden labels the supervised model was fit from
 modelId
 modelConfiguration
 promptVersion
@@ -369,6 +388,8 @@ rulesVersion
 rawResponseLocation
 createdAt
 ```
+
+The `scoreSource`, `features`, `featureContributions`, and `goldenSampleCount` fields support the supervised scoring feedback loop (§9.5). They record whether the five dimension scores were produced by the fitted supervised model or the LLM cold-start fallback, the exact feature vector scored, the explanation for each dimension, and how much golden data the model had.
 
 Recommended recommendations:
 
@@ -392,6 +413,24 @@ comment
 conditions[]
 createdAt
 ```
+
+### GoldenLabel
+
+Senior human scores treated as absolute truth for the supervised scoring model (§9.5). Append-only: create/read only, so a golden label is never rewritten once recorded.
+
+```text
+id
+useCaseId
+features               # structured feature snapshot at label time
+scores                 # five dimension scores (0-100) assigned by the senior
+overallScore           # arithmetic mean of the five scores
+recommendation         # optional senior recommendation
+scoredBy               # senior reviewer subject id
+notes                  # optional rationale
+createdAt
+```
+
+Authorization: `SENIOR_REVIEWER` and `ADMIN` may create and read; all authenticated users may read (so the Evaluation card and the client-side model preview can use golden data). There is no update or delete grant.
 
 ### Comment
 
@@ -530,6 +569,65 @@ RULES_VERSION=1.0.0
 ```
 
 Use conservative inference settings to improve repeatability. The exact model choice depends on region availability, organizational approval, cost, latency, and required quality.
+
+### 9.5 Supervised scoring feedback loop
+
+The platform learns to score like its senior reviewers. Senior human scores are captured as **golden labels** (absolute truth), structured features are extracted from each use case, and an interpretable model learns a feature→score mapping so future AI scores track senior judgement and can explain *why* a score is what it is.
+
+This is a deliberate application of supervised learning where the label is the senior's score and the goal is not just accuracy but **explainability**.
+
+#### Scoring authority
+
+- **Supervised model leads when it has enough data.** When at least `MIN_GOLDEN` (= 3) golden samples exist, the five dimension scores are produced by the supervised model (`scoreSource = SUPERVISED_MODEL`).
+- **Cold start falls back to the LLM.** Below `MIN_GOLDEN`, the LLM's scores are used (`scoreSource = LLM_COLDSTART`).
+- **Overall score is deterministic.** `overallScore` is always the arithmetic mean of the five dimension scores, regardless of source — explainable and reproducible.
+- **The LLM still owns the qualitative output** in both modes: summary, recommended pattern, recommendation (subject to the deterministic recommendation floor of §9.2), required controls, missing information, and policy references. The AI recommendation and the human decision remain stored separately (ADR-007).
+
+#### Features (structured only)
+
+Features are derived only from structured form fields and deterministic-rule hits — **no extra Bedrock call** is made to derive semantic features. This keeps extraction free, deterministic, reproducible, and explainable, and lets the identical code run in the Lambda (fit-on-read) and in the browser (framework preview). Every feature is binary (0/1). Examples:
+
+- `dataClassification` one-hot (`dc_PUBLIC` … `dc_RESTRICTED`).
+- `externalFacing`, `humanOversight`, `hasSuccessMetrics`.
+- Data-source count buckets (`ds_none` / `ds_few` / `ds_many`).
+- Estimated-volume buckets (`vol_unknown` / `vol_low` / `vol_med` / `vol_high`).
+- One `rule_<ruleId>` marker per deterministic rule hit (reusing the §9.2 engine, so the model and rules never drift).
+
+`FEATURE_CATALOG` in `amplify/functions/evaluate-use-case/features.ts` is the single source of truth for the feature space.
+
+#### Model — interpretable weighted scorecard (feature-effect model with shrinkage)
+
+Pure JavaScript, fit inside the Lambda; **no SageMaker, no vector store, no fine-tuning**. For each dimension `d`:
+
+- `baseline_d = mean(golden score_d)`
+- for each binary feature `f`: `effect_{d,f} = (mean(score_d | f=1) − baseline_d) × n1 / (n1 + K)`, with shrinkage constant `K = 3` and `n1` the number of positive samples for `f`.
+- prediction: `score_d = clamp(round(baseline_d + Σ_{active f} effect_{d,f}), 0, 100)`.
+- **contributions** = the effects of the active features → the "why this score" explanation, persisted in `featureContributions`.
+
+**Fit-on-read:** at evaluation time the Lambda reads all golden samples (small N) from DynamoDB and fits the scorecard on the fly. There is no persisted or trained artifact and nothing to retrain or version separately; the model is always the current golden set.
+
+#### Limitations (important)
+
+- The model **sums marginal, one-feature-at-a-time effects — it is not a joint regression.** Correlated features can double-count. Shrinkage (`K`) damps effects estimated from few positives but does not remove collinearity.
+- It needs **enough golden samples** to be trustworthy. `MIN_GOLDEN` is a floor for *activation*, not a guarantee of statistical validity; early predictions should be read as directional.
+- Golden labels are **only as good as the seniors who set them**, and are treated as absolute truth by design — bias in labelling propagates into scores.
+- It models scores only. Recommendation, controls, and narrative remain LLM-generated and deterministically constrained; the supervised model never widens a recommendation.
+
+#### Data captured
+
+Each `Evaluation` stores `scoreSource`, the `features` snapshot, `featureContributions`, and `goldenSampleCount` (§8). Each `GoldenLabel` stores the senior's `features` snapshot, `scores`, `overallScore`, optional `recommendation`, `scoredBy`, and `notes`, append-only.
+
+```mermaid
+flowchart LR
+    UC[Evaluated use case] --> FE[extractFeatures]
+    SR[Senior reviewer] -->|golden scores| GL[(GoldenLabel<br/>append-only)]
+    GL -->|fit-on-read, N >= MIN_GOLDEN| FIT[fitScorecard]
+    FE --> PRED[predict]
+    FIT --> PRED
+    PRED -->|scores + contributions| EV[(Evaluation<br/>scoreSource=SUPERVISED_MODEL)]
+    FE -.->|N < MIN_GOLDEN| LLM[LLM cold-start scores]
+    LLM -.-> EV
+```
 
 ---
 
@@ -1076,7 +1174,7 @@ Potential next steps, driven by validated user needs:
 9. Multi-organization isolation.
 10. Analytics and leadership reporting.
 11. Formal model and prompt evaluation.
-12. Human agreement and outcome-quality measurement.
+12. Human agreement and outcome-quality measurement. **(In progress)** — the supervised scoring feedback loop of §9.5 is a first step: senior golden labels drive the dimension scores and the AI is measured against human ground truth. Still to do: agreement dashboards, drift monitoring, held-out evaluation of the scorecard, and a joint (rather than marginal) model once enough golden data exists.
 13. Production backup, retention, recovery, and continuity plans.
 
 ---

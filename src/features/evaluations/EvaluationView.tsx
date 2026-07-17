@@ -1,6 +1,8 @@
 import { parseJsonField, type Evaluation } from '../../lib/amplify-client';
 import { RECOMMENDATION_LABELS } from '../../lib/workflow';
 import { ScoreCard } from '../../components/ScoreCard';
+import { featureLabel } from '../../../amplify/functions/evaluate-use-case/features';
+import { MIN_GOLDEN } from '../../../amplify/functions/evaluate-use-case/model';
 
 interface PolicyReference {
   title: string;
@@ -12,6 +14,11 @@ interface DeterministicFlag {
   ruleId: string;
   severity: string;
   message: string;
+}
+
+interface Contribution {
+  feature: string;
+  effect: number;
 }
 
 const SCORE_LABELS: Array<{ key: string; label: string; risk?: boolean }> = [
@@ -38,6 +45,11 @@ export function EvaluationView({ evaluation }: { evaluation: Evaluation }) {
   const scores = parseJsonField<Record<string, number>>(evaluation.scores) ?? {};
   const policyReferences = parseJsonField<PolicyReference[]>(evaluation.policyReferences) ?? [];
   const flags = parseJsonField<DeterministicFlag[]>(evaluation.deterministicFlags) ?? [];
+  const contributions =
+    parseJsonField<Record<string, Contribution[]>>(evaluation.featureContributions) ?? {};
+  const scoreSource = evaluation.scoreSource;
+  const goldenSampleCount = evaluation.goldenSampleCount ?? 0;
+  const isSupervised = scoreSource === 'SUPERVISED_MODEL';
 
   return (
     <div className="card evaluation">
@@ -55,6 +67,23 @@ export function EvaluationView({ evaluation }: { evaluation: Evaluation }) {
         <span className="muted">/ 100 overall</span>
       </div>
 
+      {scoreSource && (
+        <div className="score-source">
+          {isSupervised ? (
+            <span className="badge badge-gold">
+              Supervised model · {goldenSampleCount} golden sample{goldenSampleCount === 1 ? '' : 's'}
+            </span>
+          ) : (
+            <span className="badge badge-neutral">LLM cold-start</span>
+          )}
+          <span className="muted">
+            {isSupervised
+              ? ' Dimension scores are predicted from senior golden labels; overall is their mean.'
+              : ` Fewer than ${MIN_GOLDEN} golden labels exist, so the model has not taken over scoring yet.`}
+          </span>
+        </div>
+      )}
+
       {evaluation.summary && <p>{evaluation.summary}</p>}
       {evaluation.recommendedPattern && (
         <p className="muted">Recommended pattern: {evaluation.recommendedPattern}</p>
@@ -68,6 +97,36 @@ export function EvaluationView({ evaluation }: { evaluation: Evaluation }) {
             ),
         )}
       </div>
+
+      {isSupervised && (
+        <div className="evaluation-block">
+          <h4>Why these scores (supervised model)</h4>
+          <p className="muted">
+            Each score is a golden-data baseline plus the learned effect of the structured features
+            present in this use case. Positive values pushed the score up, negative down.
+          </p>
+          {SCORE_LABELS.map(({ key, label }) => {
+            const dims = contributions[key] ?? [];
+            if (dims.length === 0) return null;
+            return (
+              <div key={key} className="contribution-dim">
+                <span className="contribution-dim-label">{label}</span>
+                <ul className="contribution-list">
+                  {dims.map((c) => (
+                    <li key={c.feature} className={c.effect >= 0 ? 'pos' : 'neg'}>
+                      <span>{featureLabel(c.feature)}</span>
+                      <span className="contribution-effect">
+                        {c.effect >= 0 ? '+' : ''}
+                        {c.effect}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {(evaluation.requiredControls?.length ?? 0) > 0 && (
         <div className="evaluation-block">
