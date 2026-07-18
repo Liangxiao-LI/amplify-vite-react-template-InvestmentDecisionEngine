@@ -30,11 +30,9 @@ import {
 
 /**
  * evaluate-use-case — the single protected evaluation boundary (ADR-003).
- *
- * Verifies the caller, confirms the use case is evaluable, applies
- * deterministic rules, calls Amazon Bedrock, validates the structured
- * output, persists the evaluation, and records status events.
- * See architecture.md §9, §10, §14.3, §19.
+ * Verifies the caller, confirms the use case is evaluable, applies deterministic
+ * rules, calls Bedrock, validates the output, persists it, and records status
+ * events. See §9, §10, §14.3, §19.
  */
 
 const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env);
@@ -119,11 +117,8 @@ function parseScoreVector(value: unknown): Record<ScoreCategory, number> | null 
   return scores;
 }
 
-/**
- * Load all golden labels (senior human scores) for fit-on-read supervised
- * scoring (§9.5). N is expected to be small; labels with an unparseable
- * feature or score snapshot are skipped rather than corrupting the fit.
- */
+/** Load all golden labels for fit-on-read supervised scoring (§9.5). N is small;
+ *  labels with an unparseable feature/score snapshot are skipped. */
 async function loadGoldenSamples(): Promise<GoldenSample[]> {
   const samples: GoldenSample[] = [];
   let nextToken: string | null | undefined;
@@ -334,12 +329,11 @@ export const handler: Schema['evaluateUseCase']['functionHandler'] = async (
       ruleResult.minimumRecommendation,
     ) as Recommendation;
 
-    // Supervised scoring loop (§9.5): senior golden labels are absolute truth.
-    // When enough golden samples exist, fit the interpretable scorecard on the
-    // fly and let it drive the five dimension scores (persisting the per-feature
-    // contributions as the "why"). Below MIN_GOLDEN, fall back to the LLM's
-    // cold-start scores. The LLM always supplies summary, recommendedPattern,
-    // recommendation, controls, missing information, and policy references.
+    // Supervised scoring loop (§9.5): with ≥ MIN_GOLDEN golden samples, fit the
+    // scorecard on the fly to drive the five dimension scores (+ contributions
+    // as the "why"); otherwise fall back to the LLM cold-start scores. The LLM
+    // always supplies summary, pattern, recommendation, controls, missing info,
+    // and policy references.
     const features = extractFeatures(input);
     const goldenSamples = await loadGoldenSamples();
     const goldenSampleCount = goldenSamples.length;

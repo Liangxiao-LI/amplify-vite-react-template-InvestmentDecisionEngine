@@ -3,30 +3,17 @@ import { SCORE_CATEGORIES, type ScoreCategory } from './types';
 
 /**
  * Interpretable weighted scorecard — a shrinkage-regularized feature-effect
- * model for the supervised scoring loop (architecture.md §9.5).
+ * model for the supervised scoring loop (§9.5). Golden labels are absolute
+ * truth. Per dimension d:
+ *   baseline_d   = mean(golden score_d)
+ *   effect_{d,f} = (mean(score_d | f=1) - baseline_d) * n1 / (n1 + K)
+ *   score_d      = clamp(round(baseline_d + Σ_{f active} effect_{d,f}), 0, 100)
+ * The summed effects ARE the per-score "why" explanation.
  *
- * Golden labels (senior human scores) are treated as absolute truth. For each
- * of the five rubric dimensions we learn:
- *
- *   baseline_d      = mean(golden score_d)                      // dimension prior
- *   effect_{d,f}    = (mean(score_d | f=1) - baseline_d)
- *                     * n1 / (n1 + K)                           // shrunk marginal effect
- *
- * Prediction is additive and therefore fully explainable:
- *
- *   score_d = clamp(round(baseline_d + Σ_{f active} effect_{d,f}), 0, 100)
- *
- * The contributions returned alongside each score ARE the per-feature effects
- * that were summed — this is the "why this score" explanation.
- *
- * Deliberate limitations (documented, see architecture.md §9.5):
- *  - This sums *marginal* one-feature-at-a-time effects; it is NOT a joint
- *    regression, so correlated features can double-count. Shrinkage (K) damps
- *    effects estimated from few positives, but does not remove collinearity.
- *  - It needs enough golden samples to be trustworthy; below MIN_GOLDEN the
- *    caller must fall back to the LLM cold-start scores instead of predicting.
- *  - The model is refit on every evaluation from the current golden set
- *    (fit-on-read); there is no persisted/trained artifact.
+ * Limitations (§9.5): sums marginal one-feature-at-a-time effects, not a joint
+ * regression, so correlated features can double-count (shrinkage K only damps
+ * few-positive effects); needs ≥ MIN_GOLDEN samples or the caller falls back to
+ * LLM cold-start; refit on every evaluation (fit-on-read), no stored artifact.
  */
 
 /** Minimum golden samples before the supervised model may drive scores. */

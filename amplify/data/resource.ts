@@ -81,12 +81,9 @@ const schema = a
         missingInformation: a.string().array(),
         policyReferences: a.json(),
         deterministicFlags: a.json(),
-        // Supervised scoring loop (§9.5). scoreSource records whether the five
-        // dimension scores came from the fitted supervised model
-        // ('SUPERVISED_MODEL') or the LLM cold-start fallback ('LLM_COLDSTART').
-        // features is the structured feature snapshot used; featureContributions
-        // holds the per-dimension active feature effects (the "why");
-        // goldenSampleCount is how many golden labels the model was fit from.
+        // Supervised scoring loop (§9.5): scoreSource = SUPERVISED_MODEL or
+        // LLM_COLDSTART; features = snapshot; featureContributions = the "why";
+        // goldenSampleCount = golden labels the model was fit from.
         scoreSource: a.string(),
         features: a.json(),
         featureContributions: a.json(),
@@ -116,13 +113,10 @@ const schema = a
         allow.authenticated().to(['read']),
       ]),
 
-    // Golden labels — senior human scores treated as absolute truth for the
-    // supervised scoring model (§9.5). Append-only: only SENIOR_REVIEWER/ADMIN
-    // may create, and there is no update/delete grant, so a golden label stays
-    // authoritative once written. All authenticated users may read it so the
-    // Evaluation card and the client-side model preview can use it. `features`
-    // is the structured feature snapshot at label time; `scores` holds the five
-    // dimension scores (0-100) the senior assigned.
+    // Golden labels — senior human scores, absolute truth for the supervised
+    // model (§9.5). Append-only (SENIOR_REVIEWER/ADMIN create only, no update/
+    // delete); all authenticated users may read. features = snapshot; scores =
+    // the five 0-100 dimension scores the senior assigned.
     GoldenLabel: a
       .model({
         useCaseId: a.id().required(),
@@ -176,11 +170,9 @@ const schema = a
         allow.authenticated().to(['read']),
       ]),
 
-    // Singleton platform configuration (id = "GLOBAL"). Only an Administrator
-    // may change which Bedrock model generates the decision card or toggle the
-    // evaluation feature flag; all authenticated users may read it so the UI
-    // can show the active model (§9.4, §14.3). The evaluate function validates
-    // activeModelId against the approved-model allow-list before use.
+    // Singleton config (id = "GLOBAL"): only ADMIN may change the active model
+    // or toggle evaluations; all authenticated users read it (§9.4, §14.3). The
+    // evaluate function validates activeModelId against the allow-list.
     PlatformConfig: a
       .model({
         activeModelId: a.string(),

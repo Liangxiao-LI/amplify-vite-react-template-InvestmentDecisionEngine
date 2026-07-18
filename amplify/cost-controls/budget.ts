@@ -3,17 +3,9 @@ import { CfnBudget } from 'aws-cdk-lib/aws-budgets';
 import type { Topic } from 'aws-cdk-lib/aws-sns';
 
 /**
- * Monthly cost budget for the demo environment (architecture.md §14.1).
- *
- * Thresholds:
- *   50% actual   — early awareness
- *   80% actual   — investigate current usage
- *  100% forecast — projected to exceed the budget
- *  100% actual   — budget exceeded
- *  120% actual   — escalate an unexpected overrun
- *
- * AWS Budgets notifications are not real-time circuit breakers; the
- * application also enforces its own evaluation guardrails (§14.3).
+ * Monthly cost budget for the demo (§14.1). Alerts at 50/80/100/120% actual and
+ * 100% forecast. Budget alerts aren't real-time circuit breakers; the app also
+ * enforces its own evaluation guardrails (§14.3).
  */
 export function createMonthlyBudget(stack: Stack, alertTopic: Topic): CfnBudget {
   const amount = Number(process.env.MONTHLY_BUDGET_AMOUNT ?? '100');

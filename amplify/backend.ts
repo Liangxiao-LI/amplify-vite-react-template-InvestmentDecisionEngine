@@ -16,9 +16,8 @@ const backend = defineBackend({
   seedDemoData,
 });
 
-// --- Bedrock access (architecture.md §13) ----------------------------------
-// Only the evaluation function role may invoke models. Scoped to foundation
-// models and inference profiles rather than all Bedrock actions/resources.
+// Bedrock access (§13): only the evaluation role may invoke models, scoped to
+// foundation models and inference profiles.
 backend.evaluateUseCase.resources.lambda.addToRolePolicy(
   new PolicyStatement({
     effect: Effect.ALLOW,
@@ -30,7 +29,7 @@ backend.evaluateUseCase.resources.lambda.addToRolePolicy(
   }),
 );
 
-// --- Cost allocation tags (§14.4) -------------------------------------------
+// Cost allocation tags (§14.4)
 for (const stack of [
   backend.auth.stack,
   backend.data.stack,
@@ -41,10 +40,8 @@ for (const stack of [
   Tags.of(stack).add('ManagedBy', 'amplify');
 }
 
-// --- Budget monitoring and cost alerts (§14) --------------------------------
-// Deployed only when BUDGET_ALERT_EMAIL is configured, because budget and
-// Cost Explorer resources have account-level implications and may require
-// permissions beyond a normal application deployment role (§14.7).
+// Budget monitoring and cost alerts (§14). Deployed only when BUDGET_ALERT_EMAIL
+// is set — budget/Cost Explorer resources have account-level implications (§14.7).
 const budgetAlertEmail = process.env.BUDGET_ALERT_EMAIL;
 if (budgetAlertEmail) {
   const costStack = backend.createStack('cost-controls');

@@ -1,17 +1,12 @@
 import type { DeterministicFlag, RuleResult, UseCaseInput } from './types';
 
 /**
- * Deterministic policy checks that run BEFORE the model call.
- * See architecture.md §9.2. Rules are versioned via RULES_VERSION; any
- * behavioral change here requires a version bump in the function resource.
+ * Deterministic policy checks that run BEFORE the model call (§9.2).
+ * Versioned via RULES_VERSION; a behavioral change requires a version bump.
  */
 
-/**
- * Human-readable description of each deterministic rule, rendered on the
- * Decision Framework page so reviewers can see exactly how the engine
- * constrains an approval. Kept next to the executable logic below so the two
- * stay in sync.
- */
+/** Human-readable description of each rule, rendered on the Decision Framework
+ *  page. Kept beside the executable logic below so the two stay in sync. */
 export const RULE_CATALOG: Array<{
   ruleId: string;
   condition: string;
@@ -202,10 +197,8 @@ export function runDeterministicRules(useCase: UseCaseInput): RuleResult {
   return { flags, requiredControls, missingInformation, minimumRecommendation };
 }
 
-/**
- * Order recommendations from most to least permissive so a deterministic
- * floor can cap the model's recommendation.
- */
+/** Recommendations ordered most→least permissive so a deterministic floor
+ *  can cap the model's recommendation. */
 const PERMISSIVENESS: Record<string, number> = {
   PROCEED: 4,
   PROCEED_WITH_CONTROLS: 3,

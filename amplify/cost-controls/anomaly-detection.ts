@@ -2,12 +2,8 @@ import type { Stack } from 'aws-cdk-lib';
 import { CfnAnomalyMonitor, CfnAnomalySubscription } from 'aws-cdk-lib/aws-ce';
 import type { Topic } from 'aws-cdk-lib/aws-sns';
 
-/**
- * AWS Cost Anomaly Detection (architecture.md §14.2).
- *
- * Complements the fixed monthly budget by detecting unusual service-level
- * spend. A minimum-impact threshold avoids excessive low-value alerts.
- */
+/** AWS Cost Anomaly Detection (§14.2): complements the fixed budget by flagging
+ *  unusual service-level spend, with a minimum-impact threshold. */
 export function createCostAnomalyDetection(stack: Stack, alertTopic: Topic): void {
   const monitor = new CfnAnomalyMonitor(stack, 'ServiceCostAnomalyMonitor', {
     monitorName: 'genai-decision-platform-services',

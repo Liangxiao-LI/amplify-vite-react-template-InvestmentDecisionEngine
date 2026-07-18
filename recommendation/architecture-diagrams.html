@@ -1,0 +1,560 @@
+<title>GenAI Decision Platform · Architecture &amp; Data Model</title>
+<style>
+  :root {
+    /* Cool slate neutrals biased toward the platform's blue accent */
+    --paper: #f4f6fa;
+    --surface: #ffffff;
+    --ink: #131a2a;
+    --ink-soft: #46536b;
+    --ink-faint: #7a869c;
+    --line: #dde3ee;
+    --line-strong: #c4cddf;
+    --accent: #2f5bd0;
+    --accent-soft: #eaf0fd;
+    /* Semantic engine colours — the through-line of the whole system */
+    --rules: #2563eb;   /* deterministic rules  */
+    --ml: #16a34a;      /* supervised model     */
+    --llm: #c98a12;     /* LLM as judge         */
+    --human: #8b5cf6;   /* human decision       */
+    /* Diagram surface stays light in both themes so Mermaid text is legible */
+    --diagram-bg: #fbfcfe;
+    --diagram-line: #e2e7f0;
+    --shadow: 0 1px 2px rgba(19,26,42,.04), 0 8px 24px -12px rgba(19,26,42,.18);
+    --radius: 14px;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0c1018;
+      --surface: #141b28;
+      --ink: #eef2f9;
+      --ink-soft: #a7b2c6;
+      --ink-faint: #6f7c93;
+      --line: #232d3f;
+      --line-strong: #33405a;
+      --accent: #6f97f2;
+      --accent-soft: #17223a;
+      --rules: #5b8cf7;
+      --ml: #4ac37a;
+      --llm: #e0b04a;
+      --human: #a888f5;
+      --diagram-bg: #f4f6fb;   /* keep diagrams on light for readability */
+      --diagram-line: #d8deea;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 32px -14px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="light"] {
+    --paper: #f4f6fa; --surface: #ffffff; --ink: #131a2a; --ink-soft: #46536b;
+    --ink-faint: #7a869c; --line: #dde3ee; --line-strong: #c4cddf; --accent: #2f5bd0;
+    --accent-soft: #eaf0fd; --rules: #2563eb; --ml: #16a34a; --llm: #c98a12; --human: #8b5cf6;
+    --diagram-bg: #fbfcfe; --diagram-line: #e2e7f0;
+    --shadow: 0 1px 2px rgba(19,26,42,.04), 0 8px 24px -12px rgba(19,26,42,.18);
+  }
+  :root[data-theme="dark"] {
+    --paper: #0c1018; --surface: #141b28; --ink: #eef2f9; --ink-soft: #a7b2c6;
+    --ink-faint: #6f7c93; --line: #232d3f; --line-strong: #33405a; --accent: #6f97f2;
+    --accent-soft: #17223a; --rules: #5b8cf7; --ml: #4ac37a; --llm: #e0b04a; --human: #a888f5;
+    --diagram-bg: #f4f6fb; --diagram-line: #d8deea;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 32px -14px rgba(0,0,0,.6);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---- Top bar ---- */
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-inner {
+    display: flex; align-items: center; gap: 20px;
+    height: 58px; max-width: 1060px; margin: 0 auto; padding: 0 24px;
+  }
+  .brand { font-weight: 650; letter-spacing: -.01em; font-size: 15px; white-space: nowrap; }
+  .brand .dot { color: var(--accent); }
+  .topnav { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+  .topnav a {
+    font: 500 12.5px/1 var(--mono);
+    color: var(--ink-soft); text-decoration: none;
+    padding: 7px 11px; border-radius: 8px; letter-spacing: .01em;
+    transition: background .15s, color .15s;
+  }
+  .topnav a:hover { background: var(--accent-soft); color: var(--accent); }
+
+  /* ---- Hero ---- */
+  header.hero { padding: 56px 0 40px; border-bottom: 1px solid var(--line); }
+  .eyebrow {
+    font: 500 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 18px;
+  }
+  h1 {
+    font-size: clamp(30px, 4.4vw, 46px); line-height: 1.08; letter-spacing: -.025em;
+    font-weight: 680; margin: 0 0 18px; text-wrap: balance; max-width: 22ch;
+  }
+  .lede { font-size: 17px; color: var(--ink-soft); max-width: 66ch; margin: 0; }
+
+  /* ---- Engine legend ---- */
+  .legend { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 34px; }
+  .legend .item {
+    border: 1px solid var(--line); border-radius: 12px; padding: 14px 15px;
+    background: var(--surface); box-shadow: var(--shadow);
+    border-top: 3px solid var(--c);
+  }
+  .legend .k {
+    font: 600 11px/1 var(--mono); letter-spacing: .05em; text-transform: uppercase;
+    color: var(--c); margin-bottom: 7px; display: flex; align-items: center; gap: 7px;
+  }
+  .legend .k::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
+  .legend .t { font-weight: 620; font-size: 14px; margin-bottom: 3px; }
+  .legend .d { font-size: 12.5px; color: var(--ink-faint); line-height: 1.45; }
+
+  /* ---- Sections ---- */
+  section.block { padding: 52px 0; border-bottom: 1px solid var(--line); scroll-margin-top: 70px; }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px; }
+  .sec-num { font: 600 13px/1 var(--mono); color: var(--accent); }
+  h2 { font-size: clamp(21px, 2.6vw, 27px); letter-spacing: -.02em; font-weight: 660; margin: 0; }
+  .sec-desc { color: var(--ink-soft); font-size: 15px; margin: 12px 0 26px; max-width: 72ch; }
+  .sec-desc code {
+    font: 500 12.5px/1 var(--mono); background: var(--accent-soft); color: var(--accent);
+    padding: 2px 6px; border-radius: 5px;
+  }
+
+  /* ---- Diagram card ---- */
+  .diagram {
+    background: var(--diagram-bg);
+    border: 1px solid var(--diagram-line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 22px 18px;
+    overflow-x: auto;
+  }
+  .diagram pre.mermaid {
+    margin: 0; text-align: center; min-width: 640px;
+    font-family: var(--sans);
+  }
+  .cap {
+    font: 500 12px/1.5 var(--mono); color: var(--ink-faint);
+    margin-top: 14px; padding-left: 2px;
+  }
+
+  /* ---- Key-points list under a diagram ---- */
+  .notes { margin-top: 22px; display: grid; gap: 10px; }
+  .note {
+    display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start;
+    font-size: 14px; color: var(--ink-soft);
+  }
+  .note .tag {
+    font: 600 10.5px/1.6 var(--mono); letter-spacing: .03em; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+    background: var(--accent-soft); color: var(--accent);
+  }
+  .note.rules .tag { background: color-mix(in srgb, var(--rules) 14%, transparent); color: var(--rules); }
+  .note.ml .tag { background: color-mix(in srgb, var(--ml) 15%, transparent); color: var(--ml); }
+  .note.llm .tag { background: color-mix(in srgb, var(--llm) 16%, transparent); color: var(--llm); }
+  .note b { color: var(--ink); font-weight: 620; }
+
+  footer { padding: 40px 0 60px; color: var(--ink-faint); font-size: 13px; }
+  footer .mono { font-family: var(--mono); }
+
+  @media (max-width: 720px) {
+    .legend { grid-template-columns: 1fr 1fr; }
+    .topnav { display: none; }
+    header.hero { padding: 40px 0 30px; }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal { opacity: 0; transform: translateY(10px); animation: rise .5s ease forwards; }
+    @keyframes rise { to { opacity: 1; transform: none; } }
+  }
+</style>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">GenAI Decision Platform <span class="dot">·</span> Architecture</div>
+    <nav class="topnav">
+      <a href="#engines">Engines</a>
+      <a href="#er">Data Model</a>
+      <a href="#engines-detail">How They Decide</a>
+      <a href="#journey">User Journey</a>
+      <a href="#aws">AWS Architecture</a>
+    </nav>
+  </div>
+</div>
+
+<header class="hero">
+  <div class="wrap reveal">
+    <div class="eyebrow">Architecture &amp; Data Model</div>
+    <h1>Enterprise GenAI Use-Case Decision Platform</h1>
+    <p class="lede">
+      A decision-support system. A user submits a structured GenAI use case; the platform combines <strong>three engines — deterministic rules, a supervised scoring model, and an LLM judge</strong> — to produce an explainable investment decision card, and an accountable human reviewer makes the final call. Below is the real data model, user lifecycle, and underlying AWS architecture from the current codebase.
+    </p>
+
+    <div id="engines" class="legend">
+      <div class="item" style="--c: var(--rules)">
+        <div class="k">Engine A</div>
+        <div class="t">Deterministic Rules</div>
+        <div class="d">7 policy rules via keyword match. Emits compliance flags and caps the recommendation (can lower, never raise).</div>
+      </div>
+      <div class="item" style="--c: var(--ml)">
+        <div class="k">Engine B</div>
+        <div class="t">Supervised Scorecard</div>
+        <div class="d">An interpretable additive model fit on-read from senior GoldenLabels. Outputs 5 dimension scores + contributions.</div>
+      </div>
+      <div class="item" style="--c: var(--llm)">
+        <div class="k">Engine C</div>
+        <div class="t">LLM as Judge</div>
+        <div class="d">Amazon Bedrock (Claude Haiku). Produces the summary, recommendation, controls, and policy citations.</div>
+      </div>
+      <div class="item" style="--c: var(--human)">
+        <div class="k">Final</div>
+        <div class="t">Human Reviewer</div>
+        <div class="d">AI output is advisory. Approve / reject / request changes is a human act, stored separately from AI output.</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- 1. ER -->
+  <section id="er" class="block">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Data Model — ER Diagram</h2></div>
+    <p class="sec-desc">
+      Entity relationships in the current Amplify Data schema. <code>UseCase</code> is the aggregate root with one-to-many links to evaluations, decisions, comments, and status events. <code>GoldenLabel</code> is the append-only training signal for the supervised model; <code>RubricVersion</code> and <code>PlatformConfig</code> are standalone configuration tables.
+    </p>
+    <div class="diagram">
+<pre class="mermaid">
+erDiagram
+    UseCase ||--o{ Evaluation : "has many"
+    UseCase ||--o{ ReviewerDecision : "has many"
+    UseCase ||--o{ Comment : "has many"
+    UseCase ||--o{ StatusEvent : "has many"
+    UseCase ||--o{ GoldenLabel : "scored by"
+    Evaluation |o..o| ReviewerDecision : "via evaluationId"
+
+    UseCase {
+        id id PK
+        string title "required"
+        string businessProblem "required"
+        stringArray targetUsers
+        string expectedOutcome
+        stringArray successMetrics
+        string proposedCapability
+        stringArray dataSources
+        enum dataClassification "PUBLIC..RESTRICTED"
+        boolean externalFacing "default false"
+        boolean humanOversight "default true"
+        integer estimatedMonthlyVolume
+        string riskConcerns
+        enum status "DRAFT..ARCHIVED"
+        string currentEvaluationId
+        datetime submittedAt
+        string owner
+    }
+    Evaluation {
+        id id PK
+        id useCaseId FK
+        enum recommendation
+        integer overallScore "mean of 5"
+        string summary "LLM"
+        json scores "supervised or LLM"
+        string recommendedPattern
+        stringArray requiredControls "rules+LLM"
+        stringArray missingInformation
+        json policyReferences
+        json deterministicFlags "rules"
+        string scoreSource "SUPERVISED|COLDSTART"
+        json features "21 binary"
+        json featureContributions "the why"
+        integer goldenSampleCount
+        string modelId
+        json modelConfiguration
+        string promptVersion
+        string rubricVersion
+        string rulesVersion
+        string createdBy
+    }
+    GoldenLabel {
+        id id PK
+        id useCaseId FK
+        json features "snapshot"
+        json scores "senior ground truth"
+        integer overallScore
+        enum recommendation
+        string scoredBy
+        string notes
+    }
+    ReviewerDecision {
+        id id PK
+        id useCaseId FK
+        string evaluationId
+        string reviewerId
+        enum decision "APPROVED|REJECTED|CHANGES"
+        string comment
+        stringArray conditions
+    }
+    Comment {
+        id id PK
+        id useCaseId FK
+        string authorId
+        string body "required"
+        enum visibility "ALL|REVIEWERS_ONLY"
+    }
+    StatusEvent {
+        id id PK
+        id useCaseId FK
+        string actorId
+        enum actorType "USER|SYSTEM"
+        string fromStatus
+        string toStatus
+        string eventType
+        string detail
+    }
+    RubricVersion {
+        id id PK
+        string version "required"
+        string name
+        json criteria
+        json thresholds
+        boolean isActive
+    }
+    PlatformConfig {
+        id id PK "GLOBAL"
+        string activeModelId
+        boolean evaluationsEnabled
+        string updatedBy
+    }
+</pre>
+    </div>
+    <div class="notes">
+      <div class="note ml"><span class="tag">Append-only</span><div><b>GoldenLabel</b> grants create / read only — no update or delete. The training ground truth can never be silently rewritten.</div></div>
+      <div class="note rules"><span class="tag">Separation</span><div><b>Evaluation</b> (AI output) and <b>ReviewerDecision</b> (human decision) are stored in separate tables for accountability and auditability.</div></div>
+    </div>
+  </section>
+
+  <!-- 2. Inside the Three Decision Engines -->
+  <section id="engines-detail" class="block">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Inside the Three Decision Engines</h2></div>
+    <p class="sec-desc">
+      One submitted use case is assessed by three independent engines. Each has a different <strong>input</strong>, a different <strong>underlying logic</strong>, and a different <strong>basis of evidence</strong> for what it produces. Their outputs are then merged <strong>deterministically</strong> into a single Investment Decision Card — nothing is a black box, and every number traces back to a source. Read each column top-to-bottom: input → logic → output, with the dashed note showing what that engine's judgement is grounded in.
+    </p>
+    <div class="diagram">
+<pre class="mermaid">
+flowchart TB
+    UC["Submitted Use Case · 13 structured fields<br/>title · business problem · data classification · external-facing<br/>human oversight · data sources · volume · success metrics · risk concerns"]:::input
+
+    subgraph EA["Engine A · Deterministic Rules — the compliance guardrail"]
+      direction TB
+      A_in["INPUT<br/>All structured fields +<br/>keyword scan of every free-text field"]:::rules
+      A_log["LOGIC<br/>7 fixed policy rules · boolean &amp; keyword match<br/>100% deterministic · versioned (RULES_VERSION)"]:::rules
+      A_out["OUTPUT<br/>Compliance flags · required controls<br/>missing-info list · recommendation FLOOR"]:::rules
+      A_in --> A_log --> A_out
+    end
+    A_basis["BASIS · written company AI / data / privacy policy,<br/>encoded as explicit rules — can only <b>cap</b> a decision, never raise it"]:::basis
+    A_log -. grounded in .-> A_basis
+
+    subgraph EB["Engine B · Supervised Scorecard — learns senior judgement"]
+      direction TB
+      B_in["INPUT<br/>21 binary features extracted from the case<br/>(data · exposure · governance · scale · rule-hits)"]:::ml
+      B_log["LOGIC<br/>Interpretable additive scorecard, fit-on-read<br/>score = baseline + Σ shrinkage-reg. feature effects"]:::ml
+      B_out["OUTPUT<br/>5 dimension scores 0–100<br/>+ per-feature contributions (the 'why')"]:::ml
+      B_in --> B_log --> B_out
+    end
+    B_basis["BASIS · senior-reviewer <b>Golden Labels</b> (ground truth);<br/>needs ≥ 3 samples, else falls back to Engine C's scores"]:::basis
+    B_log -. trained on .-> B_basis
+
+    subgraph EC["Engine C · LLM as Judge — reasoning &amp; narrative"]
+      direction TB
+      C_in["INPUT<br/>Proposal text (untrusted) + Engine A findings<br/>+ approved policy excerpts"]:::llm
+      C_log["LOGIC<br/>Bedrock · Claude 3.5 Haiku · temperature 0.2<br/>structured JSON, schema-validated before use"]:::llm
+      C_out["OUTPUT<br/>Summary · recommendation · pattern<br/>controls · missing info · policy citations"]:::llm
+      C_in --> C_log --> C_out
+    end
+    C_basis["BASIS · 5-category rubric + approved policy excerpts<br/>(the only citable policies) — advisory, never the final word"]:::basis
+    C_log -. reasons over .-> C_basis
+
+    UC --> A_in
+    UC --> B_in
+    UC --> C_in
+    A_out -. findings feed the prompt .-> C_in
+    A_out -. rule-hits become features .-> B_in
+
+    FUSE{{"FUSION · deterministic merge (no model call)<br/>recommendation = Engine C, capped by Engine A's floor<br/>scores = Engine B (or Engine C cold-start if &lt; 3 goldens)<br/>controls &amp; missing-info = A ∪ C · overall = mean of the 5"}}:::fuse
+    A_out --> FUSE
+    B_out --> FUSE
+    C_out --> FUSE
+
+    CARD["Investment Decision Card<br/>one explainable, auditable artifact"]:::card
+    FUSE --> CARD
+    HUMAN(["Accountable human reviewer makes the final call"]):::human
+    CARD --> HUMAN
+
+    classDef input fill:#eef2fb,stroke:#7a869c,color:#131a2a,font-weight:600
+    classDef rules fill:#eff4ff,stroke:#2563eb,color:#12285e
+    classDef ml fill:#ecfdf3,stroke:#16a34a,color:#0c3a1e
+    classDef llm fill:#fef9c3,stroke:#ca8a04,color:#4a3208
+    classDef basis fill:#ffffff,stroke:#c4cddf,color:#46536b,font-style:italic
+    classDef fuse fill:#f0e9ff,stroke:#8b5cf6,color:#3b1d70,font-weight:600
+    classDef card fill:#2f5bd0,stroke:#22409a,color:#ffffff,font-weight:600
+    classDef human fill:#f5f0ff,stroke:#8b5cf6,color:#3b1d70,font-weight:600
+</pre>
+    </div>
+    <div class="notes">
+      <div class="note rules"><span class="tag">Engine A</span><div><b>Guardrail.</b> Runs first and is fully deterministic. Its policy rules can only <b>lower</b> a recommendation (a floor), never raise it — compliance is non-negotiable and reproducible.</div></div>
+      <div class="note ml"><span class="tag">Engine B</span><div><b>Judgement.</b> The five scores come straight from senior <b>Golden Labels</b>; each score ships with the exact feature contributions that produced it, so a reviewer can see <i>why</i>.</div></div>
+      <div class="note llm"><span class="tag">Engine C</span><div><b>Narrative.</b> The LLM explains and recommends, but is fenced in by the rubric, the approved-policy allow-list, and Engine A's floor — advisory, never binding.</div></div>
+    </div>
+  </section>
+
+  <!-- 3. User Journey around the three engines -->
+  <section id="journey" class="block">
+    <div class="sec-head"><span class="sec-num">03</span><h2>User Journey · Working with the Three Engines</h2></div>
+    <p class="sec-desc">
+      Every role's path runs through the same three-engine core. The <strong>Admin</strong> governs the engines, the <strong>Requester</strong> feeds them, and <strong>Reviewers</strong> — standard and senior/expert — act on their output. The senior reviewer also closes the loop, turning decisions back into the training signal that improves Engine B. Follow the numbered steps: each starts from a role and touches the engine core.
+    </p>
+    <div class="diagram">
+<pre class="mermaid">
+flowchart TB
+    ADMIN(["Admin"]):::admin
+    REQ(["Requester"]):::req
+    REV(["Reviewer · standard"]):::rev
+    SREV(["Reviewer · senior / expert"]):::srev
+
+    subgraph CORE["The Three Decision Engines"]
+      direction LR
+      RE["Engine A<br/>Deterministic Rules"]:::rules
+      SC["Engine B<br/>Supervised Scorecard"]:::ml
+      JU["Engine C<br/>LLM as Judge"]:::llm
+    end
+
+    CARD["Investment Decision Card"]:::card
+    OUT{{"Outcome recorded<br/>approve · reject · request changes"}}:::out
+
+    ADMIN ==>|"1 · configure active model, rubric &amp; feature flags · kill-switch"| CORE
+    REQ ==>|"2 · submit structured use case"| CORE
+    CORE ==>|"3 · run all three &amp; merge"| CARD
+    CARD ==>|"4 · lands in the review queue"| REV
+    REV -->|"5 · read scores · flags · summary · controls"| CARD
+    REV ==>|"6 · decide routine case"| OUT
+    REV -.->|"if Engine A raised SPECIALIST_REVIEW"| SREV
+    SREV ==>|"7 · specialist decision"| OUT
+    SREV -->|"8 · record Golden Label — ground truth"| SC
+    OUT -.->|"changes requested → revise &amp; resubmit"| REQ
+
+    classDef rules fill:#eff4ff,stroke:#2563eb,color:#12285e,font-weight:600
+    classDef ml fill:#ecfdf3,stroke:#16a34a,color:#0c3a1e,font-weight:600
+    classDef llm fill:#fef9c3,stroke:#ca8a04,color:#4a3208,font-weight:600
+    classDef admin fill:#f0e9ff,stroke:#8b5cf6,color:#3b1d70,font-weight:600
+    classDef req fill:#e0f2fe,stroke:#0369a1,color:#0c2b40,font-weight:600
+    classDef rev fill:#ffffff,stroke:#c4cddf,color:#131a2a,font-weight:600
+    classDef srev fill:#fff7ed,stroke:#c2410c,color:#5a230a,font-weight:600
+    classDef card fill:#2f5bd0,stroke:#22409a,color:#ffffff,font-weight:600
+    classDef out fill:#f4f6fa,stroke:#7a869c,color:#46536b
+</pre>
+    </div>
+    <div class="notes">
+      <div class="note rules"><span class="tag">Admin</span><div>Governs the engines up front: picks the active Bedrock model, the rubric, and the feature flags — including a <b>kill-switch</b> that disables evaluation entirely.</div></div>
+      <div class="note llm"><span class="tag">Reviewer split</span><div>Standard reviewers clear routine cases; when <b>Engine A</b> raises a <code>SPECIALIST_REVIEW</code> flag (high-impact domain / restricted data), the case routes to a <b>senior / expert</b> reviewer.</div></div>
+      <div class="note ml"><span class="tag">Flywheel</span><div>Senior reviewers record <b>Golden Labels</b> — the ground truth that trains <b>Engine B</b>. The more they review, the closer the scorecard tracks expert judgement.</div></div>
+    </div>
+  </section>
+
+  <!-- 4. AWS -->
+  <section id="aws" class="block">
+    <div class="sec-head"><span class="sec-num">04</span><h2>AWS Architecture (Amplify Abstraction Removed)</h2></div>
+    <p class="sec-desc">
+      Amplify Gen 2 translated into the underlying AWS services it actually provisions: Hosting → <code>CloudFront + S3</code>, Auth → <code>Cognito</code>, Data → <code>AppSync + DynamoDB</code>, Functions → <code>Lambda</code>. Simple CRUD is served by AppSync directly against DynamoDB; the two protected mutations run through Lambda.
+    </p>
+    <div class="diagram">
+<pre class="mermaid">
+flowchart TB
+    User["Requester / Reviewer / Senior / Admin"]
+
+    subgraph EDGE["Frontend Delivery · was Amplify Hosting"]
+        CF["Amazon CloudFront<br/>CDN · HTTPS"]
+        S3F["Amazon S3<br/>React static build"]
+        CF --> S3F
+    end
+    subgraph AUTH["Identity"]
+        COG["Amazon Cognito User Pool<br/>Groups: REQUESTER · REVIEWER<br/>SENIOR_REVIEWER · ADMIN"]
+    end
+    subgraph API["API Layer · was Amplify Data"]
+        APPSYNC["AWS AppSync · GraphQL<br/>Cognito auth + owner/group rules"]
+    end
+    subgraph DATA["Persistence"]
+        DDB[("Amazon DynamoDB<br/>UseCase · Evaluation · ReviewerDecision<br/>GoldenLabel · Comment · StatusEvent<br/>RubricVersion · PlatformConfig")]
+    end
+    subgraph COMPUTE["Backend Compute · was Amplify Functions"]
+        L1["Lambda: evaluate-use-case<br/>Rules + features + supervised score<br/>+ LLM orchestration + validation"]
+        L2["Lambda: seed-demo-data<br/>Admin · no Bedrock"]
+    end
+    subgraph AI["Model Inference"]
+        BR["Amazon Bedrock Runtime<br/>Claude 3.5 Haiku · Converse API"]
+    end
+    subgraph SEC["Permissions"]
+        IAM["AWS IAM Roles · least privilege<br/>Bedrock InvokeModel<br/>evaluation Lambda only"]
+    end
+    subgraph OBS["Observability"]
+        CW["Amazon CloudWatch<br/>Logs · Metrics · Alarms"]
+    end
+    subgraph COST["Cost Governance"]
+        BUD["AWS Budgets"]
+        CAD["Cost Anomaly Detection"]
+        SNS["Amazon SNS"]
+        MAIL["Email subscribers"]
+        BUD --> SNS
+        CAD --> SNS
+        SNS --> MAIL
+    end
+
+    User -->|HTTPS| CF
+    User -->|Sign in / JWT| COG
+    User -->|GraphQL + JWT| APPSYNC
+    APPSYNC -->|Validate token| COG
+    APPSYNC -->|CRUD resolvers| DDB
+    APPSYNC -->|Protected mutations| L1
+    APPSYNC --> L2
+    L1 -->|Read / write| DDB
+    L2 -->|Seed write| DDB
+    L1 -->|InvokeModel| BR
+    IAM -.grants.-> L1
+    IAM -.grants.-> BR
+    L1 --> CW
+    L2 --> CW
+    APPSYNC --> CW
+
+    classDef edge fill:#e0f2fe,stroke:#0369a1,color:#0c2b40
+    classDef compute fill:#dcfce7,stroke:#16a34a,color:#0c3a1e
+    classDef ai fill:#fef9c3,stroke:#ca8a04,color:#4a3208
+    classDef cost fill:#fae8ff,stroke:#a21caf,color:#4a1147
+    class CF,S3F edge
+    class L1,L2 compute
+    class BR ai
+    class BUD,CAD,SNS,MAIL cost
+</pre>
+    </div>
+    <div class="notes">
+      <div class="note rules"><span class="tag">Hosting</span><div>Amplify Hosting is <b>CloudFront + S3</b> under the hood — static SPA delivery.</div></div>
+      <div class="note ml"><span class="tag">Data</span><div>Amplify Data is <b>AppSync (GraphQL) + DynamoDB</b> — one DynamoDB table per model.</div></div>
+      <div class="note llm"><span class="tag">Least priv</span><div>Only the evaluation Lambda's <b>IAM role</b> can call Bedrock; cost governance is an account-level side path, deployed only when an alert email is configured.</div></div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="mono">Source of truth: amplify/data/resource.ts · functions/evaluate-use-case · functions/seed-demo-data</div>
+    <div style="margin-top:6px">Diagrams generated from the current codebase schema · zoomable, wide content scrolls inside each card.</div>
+  </footer>
+</main>

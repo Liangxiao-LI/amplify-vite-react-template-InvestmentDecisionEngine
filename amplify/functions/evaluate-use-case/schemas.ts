@@ -7,11 +7,8 @@ import {
   type ScoreCategory,
 } from './types';
 
-/**
- * Local schema validation for the model's structured output.
- * See architecture.md §9.3: parse, validate, reject unknown recommendation
- * values, bound scores, and never persist unvalidated model output.
- */
+/** Local schema validation for the model's structured output (§9.3): parse,
+ *  validate, reject unknown recommendations, bound scores, never persist raw. */
 
 export type ValidationResult =
   | { ok: true; value: ModelAssessment }

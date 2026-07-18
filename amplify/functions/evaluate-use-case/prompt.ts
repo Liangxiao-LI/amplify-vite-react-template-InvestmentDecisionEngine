@@ -1,16 +1,10 @@
 import type { RuleResult, UseCaseInput } from './types';
 
-/**
- * Prompt construction for the structured assessment request.
- * See architecture.md §9.1 (rubric), §9.3 (output contract), §12 (policies).
- * The prompt is versioned via PROMPT_VERSION.
- */
+/** Prompt construction for the structured assessment request (§9.1 rubric,
+ *  §9.3 output contract, §12 policies). Versioned via PROMPT_VERSION. */
 
-/**
- * Curated policy excerpts for the MVP (architecture.md §12 / ADR-005).
- * These are synthetic demo policies, versioned with the backend. A managed
- * knowledge base is intentionally out of scope for the MVP.
- */
+/** Curated synthetic policy excerpts for the MVP (§12 / ADR-005), versioned
+ *  with the backend. A managed knowledge base is out of scope for the MVP. */
 const POLICY_EXCERPTS = [
   {
     referenceId: 'policy-ai-001',

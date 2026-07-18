@@ -2,20 +2,13 @@ import { RULE_CATALOG, runDeterministicRules } from './rules';
 import type { UseCaseInput } from './types';
 
 /**
- * Structured feature extraction for the supervised scoring model
- * (architecture.md §9.5).
+ * Structured feature extraction for the supervised scoring model (§9.5).
  *
- * Features are intentionally *structured only*: they come from form fields and
- * deterministic-rule hits. We do NOT call Bedrock to derive semantic features —
- * this keeps extraction free, deterministic, reproducible, and explainable, and
- * lets the same code run identically in the Lambda (fit-on-read) and in the
- * browser (Decision Framework preview). Every feature is binary (0 or 1) so the
- * additive weighted-scorecard model in `model.ts` stays interpretable: each
- * active feature contributes exactly one learned effect per dimension.
- *
- * FEATURE_CATALOG is the single source of truth for the feature space. Adding a
- * feature here automatically widens every fitted model. Keep keys stable — they
- * are stored inside GoldenLabel feature snapshots.
+ * Features are structured-only (form fields + deterministic-rule hits); no
+ * Bedrock call, so extraction is free, deterministic, and runs identically in
+ * the Lambda and the browser preview. Every feature is binary (0/1) to keep the
+ * additive scorecard in `model.ts` interpretable. FEATURE_CATALOG is the single
+ * source of truth; keep keys stable — they are stored in GoldenLabel snapshots.
  */
 
 export interface FeatureDef {
@@ -154,12 +147,9 @@ function dataSourceBucket(count: number): string {
   return 'ds_many';
 }
 
-/**
- * Extract the binary structured feature vector for a use case. Every catalog
- * key is present (0 or 1) so fitted models and stored snapshots share a fixed,
- * comparable coordinate space. Rule-hit features reuse `runDeterministicRules`
- * so the model and the deterministic engine can never drift apart.
- */
+/** Extract the binary feature vector. Every catalog key is present (0/1) so
+ *  models and snapshots share a fixed coordinate space; rule-hit features reuse
+ *  `runDeterministicRules` so the two engines can never drift apart. */
 export function extractFeatures(useCase: UseCaseInput): Record<string, number> {
   const features: Record<string, number> = {};
   for (const key of FEATURE_KEYS) features[key] = 0;
