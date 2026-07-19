@@ -28,19 +28,14 @@ export interface ApprovedModel {
  */
 export const APPROVED_MODELS: ApprovedModel[] = [
   {
-    id: 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
-    label: 'Claude 3.5 Haiku',
+    id: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+    label: 'Claude Haiku 4.5',
     note: 'Fastest and lowest cost — default for demos.',
   },
   {
-    id: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
-    label: 'Claude 3.5 Sonnet v2',
+    id: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
+    label: 'Claude Sonnet 4.5',
     note: 'Higher quality reasoning, higher cost.',
-  },
-  {
-    id: 'us.anthropic.claude-3-haiku-20240307-v1:0',
-    label: 'Claude 3 Haiku',
-    note: 'Legacy low-cost option.',
   },
 ];
 
