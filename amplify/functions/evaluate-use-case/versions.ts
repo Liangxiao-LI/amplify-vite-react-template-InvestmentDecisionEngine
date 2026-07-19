@@ -28,14 +28,29 @@ export interface ApprovedModel {
  */
 export const APPROVED_MODELS: ApprovedModel[] = [
   {
-    id: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
-    label: 'Claude Haiku 4.5',
+    id: 'us.amazon.nova-lite-v1:0',
+    label: 'Amazon Nova Lite',
     note: 'Fastest and lowest cost — default for demos.',
   },
   {
-    id: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
-    label: 'Claude Sonnet 4.5',
+    id: 'us.amazon.nova-pro-v1:0',
+    label: 'Amazon Nova Pro',
     note: 'Higher quality reasoning, higher cost.',
+  },
+  {
+    id: 'us.meta.llama3-3-70b-instruct-v1:0',
+    label: 'Llama 3.3 70B Instruct',
+    note: 'Open-weight Meta model — strong general reasoning.',
+  },
+  {
+    id: 'mistral.mistral-large-2407-v1:0',
+    label: 'Mistral Large (24.07)',
+    note: 'Open-weight Mistral model — good structured output.',
+  },
+  {
+    id: 'us.deepseek.r1-v1:0',
+    label: 'DeepSeek-R1',
+    note: 'Reasoning model — needs higher MAX_OUTPUT_TOKENS (see resource.ts).',
   },
 ];
 

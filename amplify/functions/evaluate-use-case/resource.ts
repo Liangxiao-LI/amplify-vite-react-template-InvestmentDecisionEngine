@@ -9,7 +9,7 @@ export const evaluateUseCase = defineFunction({
   memoryMB: 256,
   environment: {
     BEDROCK_MODEL_ID:
-      process.env.BEDROCK_MODEL_ID ?? 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+      process.env.BEDROCK_MODEL_ID ?? 'us.amazon.nova-lite-v1:0',
     PROMPT_VERSION: '1.0.0',
     RUBRIC_VERSION: '1.0.0',
     RULES_VERSION: '1.0.0',
