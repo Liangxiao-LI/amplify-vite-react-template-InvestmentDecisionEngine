@@ -9,7 +9,7 @@ import { ReviewQueue } from './features/reviews/ReviewQueue';
 import { AdminPanel } from './features/admin/AdminPanel';
 import { DecisionFramework } from './features/framework/DecisionFramework';
 
-type Page = 'dashboard' | 'mine' | 'review' | 'new' | 'admin' | 'framework';
+type Page = 'dashboard' | 'mine' | 'all' | 'review' | 'new' | 'admin' | 'framework';
 
 /**
  * GenAI Use-Case Decision Platform — authenticated shell (§11).
@@ -42,8 +42,10 @@ function App() {
   }, [userId]);
 
   const isAdmin = groups.includes('ADMIN');
-  const isSenior = groups.includes('SENIOR_REVIEWER') || isAdmin;
-  const isReviewer = groups.includes('REVIEWER') || isSenior;
+  const isSeniorReviewer = groups.includes('SENIOR_REVIEWER');
+  const isReviewer = groups.includes('REVIEWER') || isSeniorReviewer || isAdmin;
+  // Admins and senior reviewers can browse the whole portfolio (any stage).
+  const canViewAll = isAdmin || isSeniorReviewer;
 
   function openUseCase(id: string) {
     setSelectedId(id);
@@ -65,8 +67,11 @@ function App() {
         </div>
         <div className="header-user">
           <span className="muted">{user?.signInDetails?.loginId ?? ''}</span>
-          {isSenior && <span className="badge badge-gold">Senior</span>}
-          {isReviewer && !isSenior && <span className="badge badge-info">Reviewer</span>}
+          {isAdmin && <span className="badge badge-gold">Admin</span>}
+          {isSeniorReviewer && <span className="badge badge-gold">Senior</span>}
+          {isReviewer && !isSeniorReviewer && !isAdmin && (
+            <span className="badge badge-info">Reviewer</span>
+          )}
           <button className="secondary" onClick={signOut}>
             Sign out
           </button>
@@ -86,6 +91,14 @@ function App() {
         >
           My use cases
         </button>
+        {canViewAll && (
+          <button
+            className={page === 'all' && !selectedId ? 'nav-active' : 'nav'}
+            onClick={() => navigate('all')}
+          >
+            All use cases
+          </button>
+        )}
         {isReviewer && (
           <button
             className={page === 'review' && !selectedId ? 'nav-active' : 'nav'}
@@ -116,7 +129,7 @@ function App() {
             useCaseId={selectedId}
             userId={userId}
             isReviewer={isReviewer}
-            isSenior={isSenior}
+            canAddGoldenLabel={isSeniorReviewer}
             onBack={() => setSelectedId(null)}
           />
         ) : page === 'dashboard' ? (
@@ -124,6 +137,13 @@ function App() {
         ) : page === 'mine' ? (
           <UseCaseList
             userId={userId}
+            onOpen={openUseCase}
+            onCreate={() => setPage('new')}
+          />
+        ) : page === 'all' && canViewAll ? (
+          <UseCaseList
+            userId={userId}
+            scope="all"
             onOpen={openUseCase}
             onCreate={() => setPage('new')}
           />

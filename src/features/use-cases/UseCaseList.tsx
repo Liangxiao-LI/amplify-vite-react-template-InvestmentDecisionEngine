@@ -6,42 +6,52 @@ interface UseCaseListProps {
   userId: string;
   onOpen: (id: string) => void;
   onCreate: () => void;
+  /** 'mine' (default) shows only owned use cases; 'all' shows the whole
+   *  portfolio — reserved for admins and senior reviewers (§9.5, §11). */
+  scope?: 'mine' | 'all';
 }
 
-/** Requester view: the use cases the signed-in user owns (§7, §11). */
-export function UseCaseList({ userId, onOpen, onCreate }: UseCaseListProps) {
+/** Use-case list. Requesters see their own; admins/seniors can see all. */
+export function UseCaseList({ userId, onOpen, onCreate, scope = 'mine' }: UseCaseListProps) {
   const [useCases, setUseCases] = useState<UseCase[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const subscription = client.models.UseCase.observeQuery().subscribe({
       next: ({ items }) => {
-        // Authorization already limits visibility; keep only owned items so
-        // reviewers see their own proposals here, not the whole portfolio.
+        // Backend authorization already limits what each role can read. In
+        // 'mine' mode keep only owned items; in 'all' mode show everything the
+        // caller is authorized to see.
+        const visible =
+          scope === 'all' ? items : items.filter((item) => item.owner?.startsWith(userId));
         setUseCases(
-          items
-            .filter((item) => item.owner?.startsWith(userId))
-            .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')),
+          [...visible].sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')),
         );
         setLoading(false);
       },
       error: () => setLoading(false),
     });
     return () => subscription.unsubscribe();
-  }, [userId]);
+  }, [userId, scope]);
 
   return (
     <section>
       <div className="section-header">
-        <h2>My use cases</h2>
-        <button onClick={onCreate}>+ New use case</button>
+        <h2>{scope === 'all' ? 'All use cases' : 'My use cases'}</h2>
+        {scope === 'mine' && <button onClick={onCreate}>+ New use case</button>}
       </div>
       {loading ? (
         <p className="muted">Loading…</p>
       ) : useCases.length === 0 ? (
         <div className="card empty-state">
-          <p>No use cases yet. Create your first GenAI use-case proposal.</p>
-          <button onClick={onCreate}>+ New use case</button>
+          {scope === 'all' ? (
+            <p>No use cases have been created yet.</p>
+          ) : (
+            <>
+              <p>No use cases yet. Create your first GenAI use-case proposal.</p>
+              <button onClick={onCreate}>+ New use case</button>
+            </>
+          )}
         </div>
       ) : (
         <ul className="item-list">

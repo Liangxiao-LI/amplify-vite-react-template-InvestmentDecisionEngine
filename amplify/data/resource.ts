@@ -64,6 +64,9 @@ const schema = a
       .authorization((allow) => [
         allow.owner(),
         allow.groups(['REVIEWER', 'ADMIN']).to(['read', 'update']),
+        // Senior reviewers may browse the entire portfolio (any stage) but not
+        // mutate it — read-only oversight (§9.5, §11).
+        allow.groups(['SENIOR_REVIEWER']).to(['read']),
       ]),
 
     // AI output is advisory and immutable through the app: created only by
@@ -128,7 +131,8 @@ const schema = a
         notes: a.string(),
       })
       .authorization((allow) => [
-        allow.groups(['SENIOR_REVIEWER', 'ADMIN']).to(['create', 'read']),
+        // Only senior reviewers record golden labels — not admins (§9.5).
+        allow.groups(['SENIOR_REVIEWER']).to(['create', 'read']),
         allow.authenticated().to(['read']),
       ]),
 

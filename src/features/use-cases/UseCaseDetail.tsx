@@ -19,7 +19,8 @@ interface UseCaseDetailProps {
   useCaseId: string;
   userId: string;
   isReviewer: boolean;
-  isSenior: boolean;
+  /** Only senior reviewers may record golden labels — not admins (§9.5). */
+  canAddGoldenLabel: boolean;
   onBack: () => void;
 }
 
@@ -31,7 +32,7 @@ export function UseCaseDetail({
   useCaseId,
   userId,
   isReviewer,
-  isSenior,
+  canAddGoldenLabel,
   onBack,
 }: UseCaseDetailProps) {
   const [useCase, setUseCase] = useState<UseCase | null>(null);
@@ -278,8 +279,8 @@ export function UseCaseDetail({
       )}
 
       {/* Senior golden labelling (§9.5): available once the use case has been
-          evaluated, only to senior reviewers / admins. */}
-      {isSenior && currentEvaluation && (
+          evaluated, to senior reviewers only (not admins). */}
+      {canAddGoldenLabel && currentEvaluation && (
         <GoldenLabelForm
           useCase={useCase}
           seniorId={userId}
